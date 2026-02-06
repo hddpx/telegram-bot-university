@@ -1756,33 +1756,65 @@ def main():
 
 if __name__ == '__main__':
     main()
+    import time
     import traceback
-
-def run_bot():
-    """Функция с обработкой ошибок для автоматического перезапуска"""
-    attempts = 0
-    max_attempts = 5
+    import asyncio
     
-    while attempts < max_attempts:
+    print("=" * 60)
+    print("🚀 ТЕЛЕГРАМ БОТ ЗАПУЩЕН НА RENDER.COM")
+    print("📅 Дата запуска:", datetime.now())
+    print("=" * 60)
+    
+    restart_count = 0
+    max_restarts = 50  # Больше попыток для долгой работы
+    restart_delay = 5  # Меньшая задержка между перезапусками
+    
+    while restart_count < max_restarts:
         try:
-            print(f"Запуск бота... Попытка {attempts + 1}/{max_attempts}")
-            main()  # Ваша основная функция
-        except KeyboardInterrupt:
-            print("\nБот остановлен пользователем")
-            break
-        except Exception as e:
-            attempts += 1
-            print(f"Ошибка: {e}")
-            print(traceback.format_exc())
+            restart_count += 1
+            print(f"\n🔧 Попытка запуска #{restart_count}")
             
-            if attempts < max_attempts:
-                print(f"Перезапуск через 10 секунд...")
-                import time
-                time.sleep(10)
+            # Создаем новый event loop для каждой попытки
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_closed():
+                    asyncio.set_event_loop(asyncio.new_event_loop())
+            except:
+                asyncio.set_event_loop(asyncio.new_event_loop())
+            
+            # Запускаем основную функцию
+            main()
+            
+        except KeyboardInterrupt:
+            print("\n🛑 Бот остановлен пользователем")
+            break
+            
+        except RuntimeError as e:
+            if "Event loop is closed" in str(e):
+                print(f"\n⚠️  Ошибка event loop, перезапуск...")
+                time.sleep(restart_delay)
+                continue
             else:
-                print("Достигнут лимит попыток перезапуска")
-                # Можно отправить уведомление администратору
+                print(f"\n💥 RuntimeError: {e}")
+                traceback.print_exc()
+                time.sleep(restart_delay)
+                
+        except Exception as e:
+            print(f"\n💥 Критическая ошибка: {e}")
+            traceback.print_exc()
+            
+            if restart_count < max_restarts:
+                print(f"🔄 Перезапуск через {restart_delay} секунд...")
+                time.sleep(restart_delay)
+            else:
+                print(f"🚫 Достигнут лимит перезапусков ({max_restarts})")
                 break
-
-if __name__ == '__main__':
-    run_bot()
+    
+    print("\n👋 Завершение работы бота")
+    # Гарантируем закрытие всех асинхронных ресурсов
+    try:
+        loop = asyncio.get_event_loop()
+        if not loop.is_closed():
+            loop.close()
+    except:
+        pass
